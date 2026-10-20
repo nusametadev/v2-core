@@ -3,7 +3,7 @@ const { ethers, artifacts } = require('hardhat')
 const { loadFixture } = require('@nomicfoundation/hardhat-toolbox/network-helpers')
 
 const { getCreate2Address } = require('./shared/utilities')
-const { factoryFixture } = require('./shared/fixtures')
+const { WNGRX, factoryFixture } = require('./shared/fixtures')
 
 const TEST_ADDRESSES = ['0x1000000000000000000000000000000000000000', '0x2000000000000000000000000000000000000000']
 
@@ -11,6 +11,11 @@ describe('UniswapV2Factory', () => {
   let wallet, other, factory
   beforeEach(async () => {
     ;({ wallet, other, factory } = await loadFixture(factoryFixture))
+  })
+
+  it('wngrx, admin', async () => {
+    expect(await factory.wngrx()).to.eq(WNGRX)
+    expect(await factory.admin()).to.eq(wallet.address)
   })
 
   it('feeTo, feeToSetter, allPairsLength', async () => {
@@ -68,5 +73,46 @@ describe('UniswapV2Factory', () => {
     await factory.setFeeToSetter(other.address)
     expect(await factory.feeToSetter()).to.eq(other.address)
     await expect(factory.setFeeToSetter(wallet.address)).to.be.revertedWith('UniswapV2: FORBIDDEN')
+  })
+
+  describe('NGRX pair restriction', () => {
+    const TOKEN_A = '0x2000000000000000000000000000000000000000'
+    const TOKEN_B = '0x3000000000000000000000000000000000000000'
+
+    it('createPair: reverts when neither token is WNGRX', async () => {
+      await expect(factory.createPair(TOKEN_A, TOKEN_B)).to.be.revertedWith('UniswapV2: PAIR_NOT_ALLOWED')
+    })
+
+    it('createPair: allowed with WNGRX on either side', async () => {
+      await factory.createPair(TOKEN_A, WNGRX)
+      await factory.createPair(WNGRX, TOKEN_B)
+      expect(await factory.allPairsLength()).to.eq(2)
+    })
+
+    it('setPairAllowed: admin only, order-agnostic, revocable', async () => {
+      await expect(factory.connect(other).setPairAllowed(TOKEN_A, TOKEN_B, true)).to.be.revertedWith(
+        'UniswapV2: FORBIDDEN'
+      )
+      await expect(factory.setPairAllowed(TOKEN_B, TOKEN_A, true))
+        .to.emit(factory, 'PairAllowedSet')
+        .withArgs(TOKEN_A, TOKEN_B, true)
+      expect(await factory.allowedPair(TOKEN_A, TOKEN_B)).to.eq(true)
+      await factory.createPair(TOKEN_B, TOKEN_A)
+      expect(await factory.getPair(TOKEN_A, TOKEN_B)).to.not.eq(ethers.ZeroAddress)
+    })
+
+    it('setPairAllowed: revoking blocks creation', async () => {
+      await factory.setPairAllowed(TOKEN_A, TOKEN_B, true)
+      await factory.setPairAllowed(TOKEN_A, TOKEN_B, false)
+      await expect(factory.createPair(TOKEN_A, TOKEN_B)).to.be.revertedWith('UniswapV2: PAIR_NOT_ALLOWED')
+    })
+
+    it('setAdmin', async () => {
+      await expect(factory.connect(other).setAdmin(other.address)).to.be.revertedWith('UniswapV2: FORBIDDEN')
+      await expect(factory.setAdmin(ethers.ZeroAddress)).to.be.revertedWith('UniswapV2: ZERO_ADDRESS')
+      await factory.setAdmin(other.address)
+      expect(await factory.admin()).to.eq(other.address)
+      await expect(factory.setAdmin(wallet.address)).to.be.revertedWith('UniswapV2: FORBIDDEN')
+    })
   })
 })
