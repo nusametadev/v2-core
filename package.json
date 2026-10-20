@@ -1,6 +1,6 @@
 {
   "name": "@uniswap/v2-core",
-  "description": "🎛 Core contracts for the UniswapV2 protocol",
+  "description": "\ud83c\udf9b Core contracts for the UniswapV2 protocol",
   "version": "1.0.1",
   "homepage": "https://uniswap.org",
   "repository": {
@@ -16,33 +16,19 @@
   ],
   "files": [
     "contracts",
-    "build"
+    "artifacts"
   ],
   "engines": {
     "node": ">=10"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.6",
-    "@types/mocha": "^5.2.7",
-    "chai": "^4.2.0",
-    "ethereum-waffle": "^2.4.1",
-    "ethereumjs-util": "^6.2.0",
-    "mocha": "^6.2.2",
-    "prettier": "^1.19.1",
-    "rimraf": "^3.0.0",
-    "solc": "0.5.16",
-    "ts-node": "^8.5.4",
-    "typescript": "^3.7.3"
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0"
   },
   "scripts": {
-    "lint": "yarn prettier ./test/*.ts --check",
-    "lint:fix": "yarn prettier ./test/*.ts --write",
-    "clean": "rimraf ./build/",
-    "precompile": "yarn clean",
-    "compile": "waffle .waffle.json",
-    "pretest": "yarn compile",
-    "test": "mocha",
-    "prepublishOnly": "yarn test"
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "init-code-hash": "hardhat run scripts/init-code-hash.js"
   },
   "license": "GPL-3.0-or-later"
 }
